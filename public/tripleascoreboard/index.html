@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Triple A Scoreboard · Afentika</title>
+<title>24 Beers · 24 Hours — Grolsch Challenge</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --green:       #00843D;
@@ -20,9 +21,10 @@
   --border:      #263D2E;
   --radius:      8px;
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
+/* ── Header ── */
 .header {
   background: var(--green-dark);
   border-bottom: 2px solid var(--green);
@@ -32,19 +34,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .header-brand { display: flex; align-items: center; gap: 12px; }
 .header-brand h1 { font-size: 1.3rem; font-weight: 700; }
 .header-brand p { font-size: 0.72rem; color: var(--muted); margin-top: 2px; letter-spacing: .04em; text-transform: uppercase; }
+.header-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.stat { text-align: center; }
+.stat-val { font-size: 1.3rem; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.stat-lbl { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 1px; }
 
-.live-badge {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 0.72rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+/* ── Nav ── */
+.nav { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; overflow-x: auto; gap: 0; }
+.nav-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: 13px 18px; cursor: pointer; font-size: 0.88rem;
+  white-space: nowrap; transition: color .15s, border-color .15s;
 }
-.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 2s ease-in-out infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--green-light); border-bottom-color: var(--green-light); font-weight: 600; }
 
-.content { padding: 24px; max-width: 900px; margin: 0 auto; }
+/* ── Layout ── */
+.content { padding: 24px; max-width: 1200px; margin: 0 auto; }
+.section { display: none; }
+.section.active { display: block; }
 
+/* ── Card ── */
 .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
 .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 
+/* ── Table ── */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 th { text-align: left; padding: 9px 12px; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -52,90 +66,519 @@ td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align:
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: var(--bg3); }
 
-.rank { font-weight: 700; font-size: 1rem; }
-.r1 { color: var(--gold); }
-.r2 { color: #C0C0C0; }
-.r3 { color: #CD7F32; }
+/* ── Progress bar ── */
+.prog-outer { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; width: 90px; position: relative; }
+.prog-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; }
+.prog-dashed {
+  position: absolute; top: 1px; height: calc(100% - 2px); border-radius: 2px;
+  border: 1.5px dashed rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+}
+.prog-row { display: flex; align-items: center; gap: 8px; }
+.prog-pct { font-size: 0.75rem; color: var(--muted); min-width: 30px; }
 
-.prog-outer { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; width: 120px; }
-.prog-fill  { height: 100%; border-radius: 4px; }
-.prog-row   { display: flex; align-items: center; gap: 8px; }
-.prog-pct   { font-size: 0.75rem; color: var(--muted); min-width: 30px; }
-
+/* ── Badges ── */
 .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px; font-size: 0.74rem; font-weight: 600; }
 .badge-ahead  { background: rgba(0,163,77,.18); color: var(--green-light); }
 .badge-behind { background: rgba(232,64,64,.18); color: var(--red); }
 .badge-pace   { background: rgba(245,166,35,.18); color: var(--gold); }
 
-.empty { text-align: center; padding: 48px; color: var(--muted); font-size: 0.88rem; }
+/* ── Rank ── */
+.rank { font-weight: 700; font-size: 1rem; }
+.r1 { color: var(--gold); }
+.r2 { color: #C0C0C0; }
+.r3 { color: #CD7F32; }
 
-.footer-row {
-  text-align: center;
-  font-size: 0.72rem;
-  color: var(--muted);
-  padding: 1.5rem 0;
-  letter-spacing: .06em;
+/* ── Forms ── */
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 0.74rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+input, select {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 14px; border-radius: var(--radius);
+  font-size: 0.92rem; outline: none; transition: border-color .15s;
 }
-.footer-row a { color: var(--green-light); text-decoration: none; }
+input:focus, select:focus { border-color: var(--green); }
+input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(.7); }
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-@media (max-width: 600px) {
+/* ── Number stepper ── */
+.stepper { display: flex; align-items: center; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.stepper input { border: none; border-radius: 0; text-align: center; font-size: 1.1rem; font-weight: 700; flex: 1; padding: 10px 4px; }
+.step-btn { background: var(--bg3); border: none; color: var(--muted); font-size: 1.2rem; font-weight: 700; padding: 0 16px; cursor: pointer; height: 100%; min-height: 44px; transition: background .1s, color .1s; flex-shrink: 0; }
+.step-btn:hover { background: var(--bg2); color: var(--text); }
+
+/* ── Buttons ── */
+.btn { padding: 10px 20px; border: none; border-radius: var(--radius); cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity .15s, transform .1s; }
+.btn:hover { opacity: .88; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-full { width: 100%; }
+.btn-sm { padding: 4px 10px; font-size: 0.75rem; background: var(--red); color: #fff; border-radius: 6px; border: none; cursor: pointer; }
+.btn-ghost { background: var(--bg3); border: 1px solid var(--border); color: var(--text); }
+
+/* ── Snapshot log ── */
+.log-list { list-style: none; max-height: 380px; overflow-y: auto; }
+.log-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.log-item:last-child { border-bottom: none; }
+.log-time { color: var(--muted); font-size: 0.76rem; flex-shrink: 0; }
+.log-name { font-weight: 600; flex-shrink: 0; }
+.log-vals { flex: 1; display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; }
+.delta { font-size: 0.72rem; color: var(--green-light); }
+
+/* ── People grid ── */
+.people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.pcard { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.pcard-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.pcard-name { font-weight: 700; font-size: 1rem; }
+.pcard-counts { display: flex; gap: 12px; font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; }
+
+/* ── Settings row ── */
+.settings-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.settings-row input { flex: 1; min-width: 180px; }
+
+/* ── Hint box ── */
+.hint { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 0.8rem; color: var(--muted); margin-bottom: 16px; }
+
+/* ── Empty ── */
+.empty { text-align: center; padding: 36px; color: var(--muted); font-size: 0.88rem; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--green-dark); border: 1px solid var(--green); color: var(--text);
+  padding: 11px 18px; border-radius: var(--radius); font-size: 0.88rem; font-weight: 600;
+  opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s;
+  z-index: 999; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── Chart ── */
+#progressChart { max-height: 480px; }
+
+/* ── Chug Rights ── */
+.chug-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chug-col-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.chug-col-count { background: var(--bg3); border-radius: 99px; padding: 1px 8px; font-size: 0.74rem; font-weight: 700; color: var(--muted); }
+.chug-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; }
+.chug-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; border: none; cursor: pointer; font-size: 0.84rem; font-weight: 600; transition: opacity .15s, transform .1s; }
+.chug-chip:hover { opacity: .82; }
+.chug-chip:active { transform: scale(.96); }
+.chug-chip-yes { background: rgba(0,163,77,.18); color: var(--green-light); }
+.chug-chip-no  { background: rgba(232,64,64,.14); color: var(--red); }
+.chug-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 14px; }
+@media (max-width: 500px) { .chug-cols { grid-template-columns: 1fr; } }
+
+/* ── Two-col layout ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 920px; }
+@media (max-width: 680px) {
+  .two-col { grid-template-columns: 1fr; }
   .content { padding: 14px; }
   .header  { padding: 12px 16px; }
+  .nav     { padding: 0 12px; }
 }
 </style>
 </head>
 <body>
 
+<!-- ════ HEADER ════ -->
 <div class="header">
   <div class="header-brand">
     <div style="font-size:2rem;">🍺</div>
     <div>
-      <h1>Triple A Scoreboard</h1>
-      <p>Afentika · 24 Beers Challenge</p>
+      <h1>24 Beers · 24 Hours</h1>
+      <p>Grolsch Challenge</p>
     </div>
   </div>
-  <div class="live-badge">
-    <div class="live-dot"></div>
-    Live — vernieuwd elke 15s
+  <div class="header-stats">
+    <div class="stat"><div class="stat-val" id="hdr-elapsed">00:00:00</div><div class="stat-lbl">Elapsed</div></div>
+    <div class="stat"><div class="stat-val" id="hdr-remaining">24:00:00</div><div class="stat-lbl">Remaining</div></div>
+    <div class="stat"><div class="stat-val" id="hdr-total">0</div><div class="stat-lbl">Total Beers</div></div>
+    <div class="stat"><div class="stat-val" id="hdr-people">0</div><div class="stat-lbl">Participants</div></div>
   </div>
 </div>
 
+<!-- ════ NAV ════ -->
+<nav class="nav">
+  <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="nav-btn" data-tab="log"       onclick="switchTab('log')">Update Totals</button>
+  <button class="nav-btn" data-tab="chart"     onclick="switchTab('chart')">Progression</button>
+  <button class="nav-btn" data-tab="people"    onclick="switchTab('people')">People</button>
+  <button class="nav-btn" data-tab="settings"  onclick="switchTab('settings')">Settings</button>
+</nav>
+
+<!-- ════ CONTENT ════ -->
 <div class="content">
-  <div class="card">
-    <div class="card-title">🏆 Leaderboard</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Naam</th>
-            <th title="Geprojecteerd op basis van gemiddelde snelheid">~Nu</th>
-            <th>🍺 Alc</th>
-            <th>🥤 Non-alc</th>
-            <th>vs Pace</th>
-            <th>Voortgang</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-body">
-          <tr><td colspan="7"><div class="empty">Laden...</div></td></tr>
-        </tbody>
-      </table>
+
+  <!-- ── DASHBOARD ── -->
+  <div class="section active" id="sec-dashboard">
+    <div class="card">
+      <div class="card-title">🏆 Leaderboard</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Name</th><th title="Projected from avg speed">Est. now ~</th>
+              <th>🍺 Alc</th><th>🥤 Non-alc</th>
+              <th>Recent speed</th><th>vs Pace</th><th>Progress</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🫗 Chug Rights</div>
+      <div class="chug-hint">Click a name to revoke or restore their right to call a group chug.</div>
+      <div class="chug-cols">
+        <div>
+          <div class="chug-col-title">🍺 Can call a chug <span class="chug-col-count" id="chug-yes-count">0</span></div>
+          <div class="chug-chips" id="chug-yes"></div>
+        </div>
+        <div>
+          <div class="chug-col-title">❌ Chugged out <span class="chug-col-count" id="chug-no-count">0</span></div>
+          <div class="chug-chips" id="chug-no"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Recent Check-ins</div>
+      <ul class="log-list" id="recent-log"></ul>
     </div>
   </div>
 
-  <div class="footer-row">
-    <a href="/tripleascoreboard/app">→ Open de volledige app</a>
+  <!-- ── LOG ── -->
+  <div class="section" id="sec-log">
+    <div class="two-col">
+
+      <div class="card">
+        <div class="card-title">📊 Update Someone's Total</div>
+        <div class="hint">
+          Enter the <strong>cumulative total</strong> beers so far — not how many since last time.
+          Speed is calculated automatically from the change between check-ins.
+        </div>
+
+        <div class="form-group">
+          <label>Person</label>
+          <select id="log-person" onchange="prefillTotals()">
+            <option value="">Select participant…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Time of check-in</label>
+          <input type="datetime-local" id="log-time" />
+        </div>
+
+        <div class="form-group">
+          <label>🍺 Total alcoholic beers so far</label>
+          <div class="stepper">
+            <button class="step-btn" onclick="step('log-alc',-1)">−</button>
+            <input type="number" id="log-alc" value="0" min="0" max="24" />
+            <button class="step-btn" onclick="step('log-alc',1)">+</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>🥤 Total non-alcoholic beers so far</label>
+          <div class="stepper">
+            <button class="step-btn" onclick="step('log-non',-1)">−</button>
+            <input type="number" id="log-non" value="0" min="0" max="24" />
+            <button class="step-btn" onclick="step('log-non',1)">+</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="logSnapshot()">Save Check-in</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📜 Check-in Log <span style="color:var(--muted);font-weight:400;font-size:0.8rem;" id="log-count"></span></div>
+        <ul class="log-list" id="full-log"></ul>
+      </div>
+
+    </div>
   </div>
+
+  <!-- ── CHART ── -->
+  <div class="section" id="sec-chart">
+    <div class="card">
+      <div class="card-title">📈 Drinking Progression</div>
+      <canvas id="progressChart"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">⚡ Speed Breakdown</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Overall avg</th>
+              <th>Recent speed</th>
+              <th>Last check-in</th>
+              <th>Check-ins</th>
+              <th>Projected finish</th>
+            </tr>
+          </thead>
+          <tbody id="speed-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PEOPLE ── -->
+  <div class="section" id="sec-people">
+    <div class="card" style="max-width:420px;">
+      <div class="card-title">➕ Add Participant</div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="new-name" placeholder="Enter name…" onkeydown="if(event.key==='Enter')addPerson()" />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addPerson()">Add Person</button>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 Participants (<span id="ppl-count">0</span>)</div>
+      <div class="people-grid" id="people-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div class="section" id="sec-settings">
+    <div class="card" style="max-width:480px;">
+      <div class="card-title">⚙️ Event Settings</div>
+
+      <div class="form-group">
+        <label>Event Start Time</label>
+        <div class="settings-row">
+          <input type="datetime-local" id="start-input" />
+          <button class="btn btn-primary" onclick="saveStart()">Save</button>
+          <button class="btn btn-ghost" onclick="setStartNow()">Now</button>
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:6px;">
+          All pace calculations are relative to this time.
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:28px;">
+        <label>Data</label>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" style="flex:1;" onclick="exportJSON()">⬇ Download JSON</button>
+          <label class="btn btn-ghost" style="flex:1;text-align:center;cursor:pointer;margin:0;">
+            ⬆ Import JSON
+            <input type="file" accept=".json" onchange="importJSON(this)" style="display:none;" />
+          </label>
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:6px;">
+          Import overwrites all current data.
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:28px;">
+        <label>Danger Zone</label>
+        <button class="btn btn-full" style="background:var(--red);color:#fff;" onclick="resetAll()">
+          Reset All Data
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<div id="toast"></div>
 
 <script>
-function pad(n) { return String(n).padStart(2, '0'); }
-function fmtHours(hrs) {
-  if (hrs < 0) hrs = 0;
-  const h = Math.floor(hrs); const m = Math.round((hrs - h) * 60);
-  return m ? `${h}h ${m}m` : `${h}h`;
+// ─── Storage ──────────────────────────────────────────────────────────────────
+const KEY = 'grolsch_v2';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || fresh(); }
+  catch { return fresh(); }
+}
+function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+function fresh() {
+  return { eventStart: new Date().toISOString(), people: [], snapshots: [] };
 }
 
+// ─── Utils ────────────────────────────────────────────────────────────────────
+let _uid = 0;
+function uid() { return Date.now().toString(36) + (++_uid).toString(36); }
+
+function toLocalISO(d) {
+  const dt = new Date(d);
+  return new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+function fmtDur(ms) {
+  if (ms < 0) ms = 0;
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDT(iso) {
+  return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function fmtHours(hrs) {
+  if (hrs < 0) hrs = 0;
+  const h = Math.floor(hrs);
+  const m = Math.round((hrs - h) * 60);
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ─── Stepper ──────────────────────────────────────────────────────────────────
+function step(id, delta) {
+  const inp = document.getElementById(id);
+  const val = Math.max(0, Math.min(24, (parseInt(inp.value) || 0) + delta));
+  inp.value = val;
+}
+
+// ─── Prefill ──────────────────────────────────────────────────────────────────
+function prefillTotals() {
+  const personId = document.getElementById('log-person').value;
+  if (!personId) return;
+  const s = load();
+  const snaps = s.snapshots
+    .filter(x => x.personId === personId)
+    .sort((a, b) => new Date(a.time) - new Date(b.time));
+  const last = snaps[snaps.length - 1];
+  document.getElementById('log-alc').value = last ? last.alcohol : 0;
+  document.getElementById('log-non').value = last ? last.nonAlc  : 0;
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+function addPerson() {
+  const inp  = document.getElementById('new-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  const s = load();
+  if (s.people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    toast('Name already exists'); return;
+  }
+  s.people.push({ id: uid(), name, chugRights: true });
+  save(s);
+  inp.value = '';
+  render();
+  toast(`${name} added!`);
+}
+
+function deletePerson(id) {
+  const s = load();
+  const p = s.people.find(x => x.id === id);
+  if (!confirm(`Remove ${p?.name} and all their check-ins?`)) return;
+  s.people    = s.people.filter(x => x.id !== id);
+  s.snapshots = s.snapshots.filter(x => x.personId !== id);
+  save(s);
+  render();
+  toast('Participant removed');
+}
+
+function logSnapshot() {
+  const personId = document.getElementById('log-person').value;
+  const timeVal  = document.getElementById('log-time').value;
+  const alc      = parseInt(document.getElementById('log-alc').value) || 0;
+  const nonAlc   = parseInt(document.getElementById('log-non').value) || 0;
+
+  if (!personId) { toast('Select a person'); return; }
+  if (!timeVal)  { toast('Select a time');   return; }
+
+  const s      = load();
+  const person = s.people.find(p => p.id === personId);
+  const time   = new Date(timeVal).toISOString();
+
+  s.snapshots.push({ id: uid(), personId, time, alcohol: alc, nonAlc });
+  save(s);
+
+  document.getElementById('log-time').value = toLocalISO(new Date());
+  render();
+  toast(`✅ Check-in saved for ${person.name} (🍺 ${alc} + 🥤 ${nonAlc})`);
+}
+
+function deleteSnapshot(id) {
+  const s = load();
+  s.snapshots = s.snapshots.filter(e => e.id !== id);
+  save(s);
+  render();
+  toast('Check-in removed');
+}
+
+function saveStart() {
+  const val = document.getElementById('start-input').value;
+  if (!val) return;
+  const s = load();
+  s.eventStart = new Date(val).toISOString();
+  save(s);
+  render();
+  toast('Event start saved');
+}
+function setStartNow() {
+  document.getElementById('start-input').value = toLocalISO(new Date());
+}
+function toggleChugRights(id) {
+  const s = load();
+  const p = s.people.find(x => x.id === id);
+  if (!p) return;
+  p.chugRights = p.chugRights === false ? true : false;
+  save(s);
+  render();
+  toast(p.chugRights ? `${p.name} can chug again!` : `${p.name} lost chug rights`);
+}
+
+function resetAll() {
+  if (!confirm('Reset ALL data? Cannot be undone.')) return;
+  localStorage.removeItem(KEY);
+  render();
+  toast('Data cleared');
+}
+
+function exportJSON() {
+  const data = JSON.stringify(load(), null, 2);
+  const a = Object.assign(document.createElement('a'), {
+    href: 'data:application/json,' + encodeURIComponent(data),
+    download: 'grolsch-challenge.json'
+  });
+  a.click();
+  toast('Downloaded!');
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.people) || !Array.isArray(data.snapshots)) throw new Error();
+      save(data);
+      render();
+      toast(`Imported — ${data.people.length} people, ${data.snapshots.length} check-ins`);
+    } catch {
+      toast('Invalid file — import cancelled');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+// Returns stats for one person based on their check-in snapshots.
+//
+// projectedTotal: extrapolates the person's average rate (from event start →
+//   last snapshot) forward to the *current* elapsed time. This is what the
+//   leaderboard ranks by, so the standings keep moving even between check-ins.
+//
+// "Recent speed" = delta beers / delta time between last two snapshots.
 function personStats(id, s) {
   const snaps = s.snapshots
     .filter(e => e.personId === id)
@@ -145,52 +588,151 @@ function personStats(id, s) {
   const now        = new Date();
   const elapsedHrs = Math.max((now - eventStart) / 3600000, 0.001);
 
-  if (!snaps.length) return { total: 0, alcohol: 0, nonAlc: 0, projectedTotal: 0, diff: 0 };
+  if (!snaps.length) {
+    return { snaps, total: 0, alcohol: 0, nonAlc: 0, overallRate: 0, recentRate: 0, diff: 0, lastSnap: null, projectedTotal: 0 };
+  }
 
   const last    = snaps[snaps.length - 1];
   const total   = last.alcohol + last.nonAlc;
+  const alcohol = last.alcohol;
+  const nonAlc  = last.nonAlc;
+
+  // Average rate = beers logged ÷ hours from event start to *last snapshot*.
+  // (Using hours-to-now would just reproduce the logged total, not project it.)
   const lastSnapHrs = Math.max((new Date(last.time) - eventStart) / 3600000, 0.001);
   const overallRate = total / lastSnapHrs;
-  const projectedTotal = Math.min(overallRate * elapsedHrs, 24);
-  const target  = Math.min(elapsedHrs, 24);
-  const diff    = projectedTotal - target;
 
-  return { total, alcohol: last.alcohol, nonAlc: last.nonAlc, projectedTotal, diff };
+  // Project that rate forward to right now (capped at 24).
+  const projectedTotal = Math.min(overallRate * elapsedHrs, 24);
+
+  // Recent rate: delta between last two snapshots (or first snap vs event start).
+  let recentRate = 0;
+  if (snaps.length >= 2) {
+    const prev  = snaps[snaps.length - 2];
+    const dtHrs = (new Date(last.time) - new Date(prev.time)) / 3600000;
+    const dBeer = (last.alcohol + last.nonAlc) - (prev.alcohol + prev.nonAlc);
+    recentRate  = dtHrs > 0.001 ? dBeer / dtHrs : 0;
+  } else {
+    recentRate = overallRate;
+  }
+
+  // Pace: compare *projected* total vs the 1-beer/hr target.
+  const target = Math.min(elapsedHrs, 24);
+  const diff   = projectedTotal - target;
+
+  return { snaps, total, alcohol, nonAlc, overallRate, recentRate, diff, lastSnap: last, projectedTotal };
 }
 
-function render(s) {
+// Total beers across all participants (sum of each person's latest snapshot)
+function grandTotal(s) {
+  return s.people.reduce((sum, p) => {
+    const st = personStats(p.id, s);
+    return sum + st.total;
+  }, 0);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const s = load();
+  renderHeader(s);
+  renderLeaderboard(s);
+  renderChugStatus(s);
+  renderRecentLog(s);
+  renderLogSection(s);
+  renderPeople(s);
+  renderSettings(s);
+  if (document.getElementById('sec-chart').classList.contains('active')) renderChart(s);
+}
+
+function renderChugStatus(s) {
+  const canChug  = s.people.filter(p => p.chugRights !== false);
+  const chugged  = s.people.filter(p => p.chugRights === false);
+
+  document.getElementById('chug-yes-count').textContent = canChug.length;
+  document.getElementById('chug-no-count').textContent  = chugged.length;
+
+  document.getElementById('chug-yes').innerHTML = canChug.length
+    ? canChug.map(p => `<button class="chug-chip chug-chip-yes" onclick="toggleChugRights('${p.id}')" title="Revoke chug rights">${p.name} ✕</button>`).join('')
+    : '<span style="color:var(--muted);font-size:0.82rem;">Nobody</span>';
+
+  document.getElementById('chug-no').innerHTML = chugged.length
+    ? chugged.map(p => `<button class="chug-chip chug-chip-no" onclick="toggleChugRights('${p.id}')" title="Restore chug rights">${p.name} ↩</button>`).join('')
+    : '<span style="color:var(--muted);font-size:0.82rem;">Nobody yet</span>';
+}
+
+function renderHeader(s) {
+  const now     = new Date();
+  const start   = new Date(s.eventStart);
+  const elapsed = now - start;
+  const remain  = Math.max(86400000 - elapsed, 0);
+  document.getElementById('hdr-elapsed').textContent   = fmtDur(elapsed);
+  document.getElementById('hdr-remaining').textContent = fmtDur(remain);
+  document.getElementById('hdr-total').textContent     = grandTotal(s);
+  document.getElementById('hdr-people').textContent    = s.people.length;
+}
+
+function renderLeaderboard(s) {
   const tbody = document.getElementById('leaderboard-body');
-  if (!s || !s.people || !s.people.length) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Nog geen deelnemers</div></td></tr>';
+  if (!s.people.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty">No participants yet — add people in the People tab.</div></td></tr>';
     return;
   }
 
   const rows = s.people
     .map(p => ({ p, ...personStats(p.id, s) }))
-    .sort((a, b) => b.projectedTotal - a.projectedTotal);
+    .sort((a, b) => b.projectedTotal - a.projectedTotal || b.alcohol - a.alcohol);
 
-  tbody.innerHTML = rows.map(({ p, total, alcohol, nonAlc, projectedTotal, diff }, i) => {
-    const rankClass = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : '';
-    const medal     = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
-    const pct       = (total / 24) * 100;
-    const alcPct    = total > 0 ? (alcohol / total) * 100 : 0;
-    const fill      = `background:linear-gradient(90deg,var(--gold) ${alcPct.toFixed(1)}%,var(--blue) ${alcPct.toFixed(1)}%);width:${pct.toFixed(1)}%`;
+  tbody.innerHTML = rows.map(({ p, total, alcohol, nonAlc, recentRate, diff, projectedTotal }, i) => {
+    const rank    = i + 1;
+    const rankCls = rank <= 3 ? `rank r${rank}` : 'rank';
 
-    let badge;
-    if (diff > 0.5)       badge = `<span class="badge badge-ahead">+${diff.toFixed(1)} ahead</span>`;
-    else if (diff < -0.5) badge = `<span class="badge badge-behind">${diff.toFixed(1)} behind</span>`;
-    else                  badge = `<span class="badge badge-pace">on pace</span>`;
+    // Solid fill = confirmed logged beers; dashed extension = projected extra.
+    const loggedPct = Math.min((total / 24) * 100, 100);
+    const projPct   = Math.min((projectedTotal / 24) * 100, 100);
+    const extPct    = projPct - loggedPct;
+    const pct       = projPct; // used for the % label
+    const alcPct    = total ? (alcohol / total) * 100 : 0;
+
+    let fill;
+    if (total === 0)        fill = 'width:0%';
+    else if (nonAlc === 0)  fill = `background:var(--gold);width:${loggedPct.toFixed(1)}%`;
+    else if (alcohol === 0) fill = `background:var(--blue);width:${loggedPct.toFixed(1)}%`;
+    else                    fill = `background:linear-gradient(90deg,var(--gold) ${alcPct.toFixed(1)}%,var(--blue) ${alcPct.toFixed(1)}%);width:${loggedPct.toFixed(1)}%`;
+
+    const dashedBar = extPct > 0.2
+      ? `<div class="prog-dashed" style="left:${loggedPct.toFixed(1)}%;width:${extPct.toFixed(1)}%"></div>`
+      : '';
+
+    let paceLabel, paceCls;
+    if      (diff >  0.5) { paceLabel = `+${diff.toFixed(1)}`; paceCls = 'badge badge-ahead';  }
+    else if (diff < -0.5) { paceLabel = `${diff.toFixed(1)}`;  paceCls = 'badge badge-behind'; }
+    else                  { paceLabel = 'On pace';             paceCls = 'badge badge-pace';   }
+
+    const speedStr = total === 0 ? '—' : `${recentRate.toFixed(2)}/hr`;
+
+    // Show projected value; if it differs from last-logged total, show logged underneath.
+    const projRounded  = projectedTotal.toFixed(1);
+    const loggedNote   = total > 0 && Math.abs(projectedTotal - total) >= 0.05
+      ? `<div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">logged: ${total}</div>`
+      : '';
 
     return `<tr>
-      <td><span class="rank ${rankClass}">${medal}</span></td>
-      <td><strong>${escHtml(p.name)}</strong></td>
-      <td style="font-weight:600;color:var(--gold);">${projectedTotal.toFixed(1)}</td>
-      <td>${alcohol}</td>
+      <td><span class="${rankCls}">${rank}</span></td>
+      <td><strong>${p.name}</strong></td>
+      <td>
+        <strong style="font-size:1.05rem;">~${projRounded}</strong><span style="color:var(--muted);font-size:0.75rem;">/24</span>
+        ${loggedNote}
+      </td>
+      <td style="color:var(--gold);">${alcohol}</td>
       <td style="color:var(--blue);">${nonAlc}</td>
-      <td>${badge}</td>
+      <td>${speedStr}</td>
+      <td><span class="${paceCls}">${paceLabel}</span></td>
       <td>
         <div class="prog-row">
-          <div class="prog-outer"><div class="prog-fill" style="${fill}"></div></div>
+          <div class="prog-outer">
+            <div class="prog-fill" style="${fill}"></div>
+            ${dashedBar}
+          </div>
           <span class="prog-pct">${pct.toFixed(0)}%</span>
         </div>
       </td>
@@ -198,24 +740,377 @@ function render(s) {
   }).join('');
 }
 
-function escHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function renderRecentLog(s) {
+  const el = document.getElementById('recent-log');
+
+  // Build an enriched list: snapshot + delta vs previous snapshot
+  const enriched = [];
+  for (const p of s.people) {
+    const snaps = s.snapshots
+      .filter(e => e.personId === p.id)
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+    snaps.forEach((snap, idx) => {
+      const prev  = idx > 0 ? snaps[idx - 1] : { alcohol: 0, nonAlc: 0 };
+      const dAlc  = snap.alcohol - prev.alcohol;
+      const dNon  = snap.nonAlc  - prev.nonAlc;
+      enriched.push({ snap, p, dAlc, dNon });
+    });
+  }
+  enriched.sort((a, b) => new Date(b.snap.time) - new Date(a.snap.time));
+
+  if (!enriched.length) {
+    el.innerHTML = '<li class="log-item"><span style="color:var(--muted);width:100%;text-align:center;">No check-ins yet.</span></li>';
+    return;
+  }
+
+  el.innerHTML = enriched.slice(0, 10).map(({ snap, p, dAlc, dNon }) => {
+    const dStr = (dAlc + dNon) > 0
+      ? `<span class="delta">(+${dAlc + dNon} since last)</span>`
+      : `<span style="color:var(--muted);font-size:0.72rem;">(no change)</span>`;
+    return `<li class="log-item">
+      <span class="log-name">${p.name}</span>
+      <div class="log-vals">
+        <span style="color:var(--gold);">🍺 ${snap.alcohol}</span>
+        <span style="color:var(--blue);">🥤 ${snap.nonAlc}</span>
+        ${dStr}
+      </div>
+      <span class="log-time">${fmtDT(snap.time)}</span>
+    </li>`;
+  }).join('');
 }
 
-async function loadScores() {
-  try {
-    const res = await fetch('/api/sync');
-    if (!res.ok) throw new Error();
-    const { data } = await res.json();
-    render(data);
-  } catch {
-    document.getElementById('leaderboard-body').innerHTML =
-      '<tr><td colspan="7"><div class="empty">Kon data niet laden</div></td></tr>';
+function renderLogSection(s) {
+  const sel = document.getElementById('log-person');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select participant…</option>' +
+    s.people.map(p => `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${p.name}</option>`).join('');
+
+  // Full check-in log (sorted newest first)
+  const el  = document.getElementById('full-log');
+  const cnt = document.getElementById('log-count');
+
+  const enriched = [];
+  for (const p of s.people) {
+    const snaps = s.snapshots
+      .filter(e => e.personId === p.id)
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+    snaps.forEach((snap, idx) => {
+      const prev = idx > 0 ? snaps[idx - 1] : { alcohol: 0, nonAlc: 0 };
+      enriched.push({ snap, p, dAlc: snap.alcohol - prev.alcohol, dNon: snap.nonAlc - prev.nonAlc });
+    });
+  }
+  enriched.sort((a, b) => new Date(b.snap.time) - new Date(a.snap.time));
+  cnt.textContent = enriched.length ? `(${enriched.length})` : '';
+
+  if (!enriched.length) {
+    el.innerHTML = '<li class="log-item"><span style="color:var(--muted);">No check-ins yet.</span></li>';
+    return;
+  }
+
+  el.innerHTML = enriched.map(({ snap, p, dAlc, dNon }) => {
+    const delta = dAlc + dNon;
+    return `<li class="log-item">
+      <span class="log-name" style="font-size:0.83rem;">${p.name}</span>
+      <div class="log-vals">
+        <span style="color:var(--gold);">🍺${snap.alcohol}</span>
+        <span style="color:var(--blue);">🥤${snap.nonAlc}</span>
+        ${delta > 0 ? `<span class="delta">+${delta}</span>` : ''}
+      </div>
+      <span class="log-time">${fmtDT(snap.time)}</span>
+      <button class="btn-sm" onclick="deleteSnapshot('${snap.id}')">✕</button>
+    </li>`;
+  }).join('');
+}
+
+function renderPeople(s) {
+  document.getElementById('ppl-count').textContent = s.people.length;
+  const grid = document.getElementById('people-grid');
+  if (!s.people.length) { grid.innerHTML = '<div class="empty">No participants yet.</div>'; return; }
+
+  grid.innerHTML = s.people.map(p => {
+    const st     = personStats(p.id, s);
+    const pct    = Math.min((st.total / 24) * 100, 100);
+    const alcPct = st.total ? (st.alcohol / st.total) * 100 : 0;
+    const fill   = st.total === 0 ? 'width:0%'
+      : st.nonAlc  === 0 ? `background:var(--gold);width:${pct.toFixed(1)}%`
+      : st.alcohol === 0 ? `background:var(--blue);width:${pct.toFixed(1)}%`
+      : `background:linear-gradient(90deg,var(--gold) ${alcPct.toFixed(1)}%,var(--blue) ${alcPct.toFixed(1)}%);width:${pct.toFixed(1)}%`;
+
+    return `<div class="pcard">
+      <div class="pcard-head">
+        <span class="pcard-name">${p.name}</span>
+        <button class="btn-sm" onclick="deletePerson('${p.id}')">Remove</button>
+      </div>
+      <div class="pcard-counts">
+        <span>🍺 <strong style="color:var(--gold);">${st.alcohol}</strong></span>
+        <span>🥤 <strong style="color:var(--blue);">${st.nonAlc}</strong></span>
+        <span>Total <strong>${st.total}</strong>/24</span>
+      </div>
+      <div class="prog-outer" style="width:100%;height:6px;">
+        <div class="prog-fill" style="${fill}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSettings(s) {
+  const inp = document.getElementById('start-input');
+  if (!inp.dataset.set) {
+    inp.value = toLocalISO(new Date(s.eventStart));
+    inp.dataset.set = '1';
   }
 }
 
-loadScores();
-setInterval(loadScores, 15000);
+// ─── Chart ────────────────────────────────────────────────────────────────────
+const COLORS = [
+  '#F5A623','#4A9EE8','#00A34D','#E84040','#A855F7',
+  '#EC4899','#14B8A6','#F97316','#84CC16','#06B6D4',
+  '#8B5CF6','#EF4444','#10B981','#3B82F6','#F59E0B'
+];
+
+let _chart = null;
+
+function renderChart(s) {
+  const ctx = document.getElementById('progressChart');
+  if (_chart) { _chart.destroy(); _chart = null; }
+
+  const eventStart = new Date(s.eventStart);
+  const now        = new Date();
+  const elapsedHrs = Math.max((now - eventStart) / 3600000, 0);
+
+  // ── Dynamic x-axis ───────────────────────────────────────────────────────
+  // Find the latest check-in time across all snapshots.
+  let latestCheckInHrs = 0;
+  for (const snap of s.snapshots) {
+    const hrs = (new Date(snap.time) - eventStart) / 3600000;
+    if (hrs > latestCheckInHrs) latestCheckInHrs = hrs;
+  }
+
+  // Scale so the last check-in lands at the ~halfway point of the axis.
+  // Round up to the nearest whole hour for clean tick labels.
+  // Also ensure "now" is always visible and we never exceed 24 h.
+  const xMaxRaw = latestCheckInHrs > 0
+    ? Math.max(latestCheckInHrs * 2, elapsedHrs + 0.5)
+    : Math.max(elapsedHrs + 1, 4); // fallback when no check-ins yet
+  const xMax = Math.min(Math.ceil(xMaxRaw), 24);
+
+  // ── Person lines ─────────────────────────────────────────────────────────
+  // Each person gets two datasets:
+  //   1. Solid — confirmed check-in points
+  //   2. Dashed — projected from last check-in to estimated position now
+  const personDatasets = [];
+
+  s.people.forEach((p, i) => {
+    const snaps = s.snapshots
+      .filter(e => e.personId === p.id)
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+
+    const color = COLORS[i % COLORS.length];
+
+    // Solid confirmed line
+    const solidPts = [{ x: 0, y: 0 }];
+    snaps.forEach(snap => {
+      const hrs = (new Date(snap.time) - eventStart) / 3600000;
+      solidPts.push({ x: Math.max(hrs, 0), y: snap.alcohol + snap.nonAlc });
+    });
+
+    personDatasets.push({
+      label: p.name,
+      data: solidPts,
+      borderColor: color,
+      backgroundColor: color + '18',
+      fill: false,
+      tension: 0.15,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2.5,
+    });
+
+    // Dashed projected line: last check-in → estimated position right now
+    if (snaps.length > 0) {
+      const last      = snaps[snaps.length - 1];
+      const lastTotal = last.alcohol + last.nonAlc;
+      const lastHrs   = Math.max((new Date(last.time) - eventStart) / 3600000, 0.001);
+      const rate      = lastTotal / lastHrs;             // avg beers/hr to last snap
+      const projTotal = Math.min(rate * elapsedHrs, 24); // project to now
+
+      personDatasets.push({
+        label: `${p.name}__proj`,   // double-underscore flag, hidden from legend/tooltip
+        data: [
+          { x: lastHrs,    y: lastTotal  },
+          { x: elapsedHrs, y: projTotal  },
+        ],
+        borderColor: color,
+        fill: false,
+        tension: 0,
+        borderWidth: 1.5,
+        borderDash: [5, 4],
+        // Hollow circle only at the projected tip
+        pointRadius:          [0, 5],
+        pointHoverRadius:     [0, 7],
+        pointBackgroundColor: ['transparent', 'transparent'],
+        pointBorderColor:     ['transparent', color],
+        pointBorderWidth:     [0, 2],
+      });
+    }
+  });
+
+  // ── Target pace line (clipped to visible range) ───────────────────────────
+  const targetLine = {
+    label: '🎯 Minimum (1/hr)',
+    data: [{ x: 0, y: 0 }, { x: Math.min(xMax, 24), y: Math.min(xMax, 24) }],
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderDash: [6, 5],
+    fill: false,
+    pointRadius: 0,
+    borderWidth: 1.5,
+    tension: 0,
+    pointStyle: 'line',
+  };
+
+  // ── Legend entry explaining the dashed projection lines ──────────────────
+  const projLegendEntry = {
+    label: '╌╌ Projected (est.)',
+    data: [],
+    borderColor: 'rgba(255,255,255,0.55)',
+    borderDash: [5, 4],
+    borderWidth: 1.5,
+    fill: false,
+    pointRadius: 0,
+    pointStyle: 'line',
+  };
+
+  // ── "Now" vertical marker ─────────────────────────────────────────────────
+  const nowLine = {
+    label: '▸ Now',
+    data: [{ x: elapsedHrs, y: 0 }, { x: elapsedHrs, y: 24 }],
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderDash: [2, 5],
+    fill: false,
+    pointRadius: 0,
+    borderWidth: 1.5,
+    tension: 0,
+  };
+
+  _chart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: [targetLine, projLegendEntry, nowLine, ...personDatasets] },
+    options: {
+      responsive: true,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#E6F4EC', font: { size: 12 }, padding: 16,
+            usePointStyle: true,
+            filter: item => item.text !== '▸ Now' && !item.text.endsWith('__proj')
+          }
+        },
+        tooltip: {
+          callbacks: {
+            title: items => `Event +${fmtHours(items[0]?.parsed?.x ?? 0)}`,
+            label: item => {
+              const lbl = item.dataset.label ?? '';
+              if (lbl === '▸ Now')              return null;
+              if (lbl.endsWith('__proj'))        return null;
+              if (lbl.startsWith('╌╌'))          return null;
+              return `${lbl}: ${item.parsed.y} beer${item.parsed.y !== 1 ? 's' : ''}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear', min: 0, max: xMax,
+          title: { display: true, text: 'Time', color: '#6B9878' },
+          ticks: {
+            color: '#6B9878', maxTicksLimit: 9,
+            callback: v => {
+              if (!Number.isInteger(v)) return '';
+              const t = new Date(new Date(s.eventStart).getTime() + v * 3600000);
+              return t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+          },
+          grid: { color: 'rgba(38,61,46,0.8)' }
+        },
+        y: {
+          min: 0, max: 24,
+          title: { display: true, text: 'Total beers', color: '#6B9878' },
+          ticks: { color: '#6B9878', stepSize: 4 },
+          grid: { color: 'rgba(38,61,46,0.8)' }
+        }
+      }
+    }
+  });
+
+  renderSpeedTable(s);
+}
+
+function renderSpeedTable(s) {
+  const tbody = document.getElementById('speed-body');
+  if (!s.people.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty">No participants yet.</div></td></tr>';
+    return;
+  }
+
+  const rows = s.people
+    .map(p => ({ p, ...personStats(p.id, s) }))
+    .sort((a, b) => b.recentRate - a.recentRate);
+
+  const eventStart = new Date(s.eventStart);
+
+  tbody.innerHTML = rows.map(({ p, total, overallRate, recentRate, lastSnap, snaps }) => {
+    const lastAt = lastSnap ? new Date(lastSnap.time) : null;
+
+    // Projected finish using recent rate
+    let projText = '—';
+    if (recentRate > 0) {
+      const remaining     = 24 - total;
+      const hrsNeeded     = remaining / recentRate;
+      const lastTime      = lastAt || new Date(s.eventStart);
+      const finishTime    = new Date(lastTime.getTime() + hrsNeeded * 3600000);
+      const eventEnd      = new Date(eventStart.getTime() + 24 * 3600000);
+      projText = finishTime > eventEnd ? 'Won\'t finish' : fmtTime(finishTime.toISOString());
+    } else if (total >= 24) {
+      projText = '✅ Done!';
+    }
+
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${total === 0 ? '—' : overallRate.toFixed(2) + '/hr'}</td>
+      <td style="font-weight:600;color:${recentRate > 1 ? 'var(--green-light)' : recentRate > 0 ? 'var(--gold)' : 'var(--muted)'};">
+        ${total === 0 ? '—' : recentRate.toFixed(2) + '/hr'}
+      </td>
+      <td>${lastAt ? fmtDT(lastAt.toISOString()) : '—'}</td>
+      <td style="color:var(--muted);">${snaps.length}</td>
+      <td>${projText}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Tab navigation ───────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + tab).classList.add('active');
+  document.querySelector(`.nav-btn[data-tab="${tab}"]`).classList.add('active');
+  if (tab === 'chart') renderChart(load());
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  document.getElementById('log-time').value = toLocalISO(new Date());
+  render();
+  setInterval(() => renderHeader(load()), 1000);
+  setInterval(() => {
+    const s = load();
+    renderLeaderboard(s);
+    if (document.getElementById('sec-chart').classList.contains('active')) renderChart(s);
+  }, 30000);
+}
+
+init();
 </script>
 </body>
 </html>
