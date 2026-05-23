@@ -53,4 +53,4 @@ function json(data, status = 200) {
       'Access-Control-Allow-Origin': '*',
     },
   });
-} 
+}
