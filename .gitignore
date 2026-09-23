@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+
+# Lustrum game: echte content en gegenereerde output bevatten antwoorden,
+# pincodes en spelerscodes. De repo is publiek, dus deze blijven lokaal.
+lustrum/content/game.json
+lustrum/out/
+.dev.vars

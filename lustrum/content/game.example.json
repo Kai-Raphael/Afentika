@@ -1,0 +1,40 @@
+{
+  "baseUrl": "https://afentika.nl",
+  "gameTitle": "Wie is de Baas?",
+  "players": ["Speler Een", "Speler Twee", "Speler Drie"],
+  "roles": [
+    { "name": "De Butler", "description": "Je weet alles wat er in huis gebeurt." },
+    { "name": "De Kok", "description": "Zonder jou eet niemand." },
+    { "name": "De Tuinman", "description": "Je ziet wie er 's nachts naar buiten sluipt." }
+  ],
+  "missions": [
+    "Laat iemand anders jouw drankje voor je halen.",
+    "Gebruik het woord 'fenomenaal' drie keer in één gesprek.",
+    "Zorg dat iemand je een high five geeft zonder dat je erom vraagt."
+  ],
+  "questions": [
+    {
+      "key": "kaart",
+      "title": "Raadsel",
+      "body": "Ik heb steden maar geen huizen, bergen maar geen bomen en water maar geen vissen. Wat ben ik? (één woord)",
+      "answers": ["kaart", "landkaart", "wereldkaart"],
+      "points": 1,
+      "location": "Onder de keukentafel"
+    },
+    {
+      "key": "adres",
+      "title": "Gehusseld adres",
+      "body": "Deze letters vormen de straat van huize Afentiká: {anagram}",
+      "anagramOf": "Voorbeeldstraat",
+      "answers": ["Voorbeeldstraat"],
+      "points": 2
+    },
+    {
+      "key": "oprichting",
+      "title": "Geschiedenis",
+      "body": "Op welke datum is Afentiká opgericht? (dd-mm-jjjj)",
+      "answers": ["TODO"],
+      "points": 2
+    }
+  ]
+}

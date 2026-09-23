@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Scorebord · Lustrum Afentiká</title>
+  <link rel="stylesheet" href="/lustrum/lustrum.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <p class="kicker">Huize Afentiká</p>
+      <h1>Scorebord</h1>
+      <p>Ververst elke 15 seconden</p>
+    </header>
+    <section class="card">
+      <table>
+        <thead><tr><th>#</th><th>Speler</th><th style="text-align:right">Punten</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+    <p class="muted" style="text-align:center"><a href="/lustrum">Naar mijn overzicht</a></p>
+  </main>
+
+  <script type="module">
+    import { $, api, el } from '/lustrum/lustrum.js';
+
+    async function refresh() {
+      try {
+        const { players } = await api('scoreboard', { token: '' });
+        $('#rows').replaceChildren(...players.map((player, index) =>
+          el('tr', { className: player.alive ? '' : 'out' },
+            el('td', { textContent: index + 1 }),
+            el('td', { textContent: player.name }),
+            el('td', { textContent: player.points, style: 'text-align:right;font-weight:700' }),
+          )));
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 15000);
+  </script>
+</body>
+</html>
