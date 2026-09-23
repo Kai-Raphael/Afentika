@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Vraag · Lustrum Afentiká</title>
+  <link rel="stylesheet" href="/lustrum/lustrum.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <p class="kicker">Huize Afentiká</p>
+      <h1>Je hebt een vraag gevonden</h1>
+    </header>
+    <div id="app"></div>
+    <p class="muted" style="text-align:center"><a href="/lustrum">Naar mijn overzicht</a></p>
+  </main>
+
+  <script type="module">
+    import { $, api, el, playerCode, renderLogin, showMessage } from '/lustrum/lustrum.js';
+
+    const app = $('#app');
+    const slug = location.pathname.split('/').filter(Boolean).pop();
+
+    function askPin() {
+      const input = el('input', { className: 'code', inputMode: 'numeric', placeholder: '0000', maxLength: 4, required: true });
+      const feedback = el('div');
+      const form = el('form', { className: 'card' },
+        el('h2', { textContent: 'Voer de pincode van de sticker in' }),
+        input,
+        el('button', { type: 'submit', textContent: 'Openen' }),
+        feedback,
+      );
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          const pin = input.value.trim();
+          renderQuestion(pin, await api('question', { body: { slug, pin } }));
+        } catch (error) {
+          if (error.status === 401) return login();
+          showMessage(feedback, error.message);
+        }
+      });
+      app.replaceChildren(form);
+      input.focus();
+    }
+
+    function renderQuestion(pin, question, result) {
+      const feedback = el('div');
+      const input = el('input', { placeholder: 'Jouw antwoord', autocomplete: 'off', required: true });
+      const form = el('form', { className: 'card' },
+        el('p', { className: 'kicker', textContent: `Vraag #${question.number} · ${question.points} punt${question.points === 1 ? '' : 'en'}` }),
+        el('h2', { textContent: question.title }),
+        el('p', { className: 'question-body', textContent: question.body }),
+        feedback,
+      );
+
+      if (question.solved) {
+        showMessage(feedback, `Goed! ${question.points} punt${question.points === 1 ? '' : 'en'} bijgeschreven.`, 'ok');
+      } else if (question.attemptsLeft === 0) {
+        showMessage(feedback, 'Helaas, je pogingen voor deze vraag zijn op.');
+      } else {
+        form.append(input, el('button', { type: 'submit', textContent: 'Controleer' }),
+          el('p', { className: 'muted', textContent: `Nog ${question.attemptsLeft} poging${question.attemptsLeft === 1 ? '' : 'en'}.` }));
+        if (result && !result.correct) showMessage(feedback, 'Dat is niet goed.');
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          const outcome = await api('answer', { body: { slug, pin, answer: input.value } });
+          renderQuestion(pin, { ...question, ...outcome }, outcome);
+        } catch (error) {
+          showMessage(feedback, error.message);
+        }
+      });
+      app.replaceChildren(form);
+      input.focus();
+    }
+
+    function login() {
+      playerCode.clear();
+      renderLogin(app, askPin);
+    }
+
+    playerCode.get() ? askPin() : login();
+  </script>
+</body>
+</html>

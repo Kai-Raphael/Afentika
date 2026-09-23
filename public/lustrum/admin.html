@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Spelleider · Lustrum Afentiká</title>
+  <link rel="stylesheet" href="/lustrum/lustrum.css" />
+</head>
+<body>
+  <main class="wide">
+    <header>
+      <p class="kicker">Huize Afentiká</p>
+      <h1>Spelleider</h1>
+    </header>
+    <div id="feedback"></div>
+    <div id="app"></div>
+  </main>
+
+  <script type="module">
+    import { $, api, el, showMessage } from '/lustrum/lustrum.js';
+
+    const PASSWORD_KEY = 'lustrum.adminPassword';
+    const app = $('#app');
+    const feedback = $('#feedback');
+    let password = sessionStorageGet();
+
+    async function load() {
+      if (!password) return renderLogin();
+      try {
+        render(await api('admin', { token: password }));
+      } catch (error) {
+        if (error.status === 401) return renderLogin(error.message);
+        showMessage(feedback, error.message);
+      }
+    }
+
+    async function act(body) {
+      try {
+        render(await api('admin', { token: password, body }));
+        showMessage(feedback, '');
+      } catch (error) {
+        showMessage(feedback, error.message);
+      }
+    }
+
+    function renderLogin(message) {
+      const input = el('input', { type: 'password', placeholder: 'Admin-wachtwoord', required: true });
+      const form = el('form', { className: 'card' }, el('h2', { textContent: 'Inloggen' }), input,
+        el('button', { type: 'submit', textContent: 'Inloggen' }));
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        password = input.value;
+        sessionStorageSet(password);
+        load();
+      });
+      showMessage(feedback, message ?? '');
+      app.replaceChildren(form);
+    }
+
+    function render(state) {
+      app.replaceChildren(
+        renderRoundCard(state),
+        renderAwardCard(state.players),
+        renderPlayersCard(state.players),
+        renderQuestionsCard(state.questions),
+        renderLedgerCard(state.ledger),
+        el('button', { className: 'secondary', textContent: 'Vernieuwen', onclick: load }),
+      );
+    }
+
+    function renderRoundCard({ openRound, lastClosedRound }) {
+      const card = el('section', { className: 'card' }, el('h2', { textContent: 'Stemronde' }));
+      if (openRound) {
+        card.append(
+          el('p', { textContent: `Open: ${openRound.label}` }),
+          renderRoundResult(openRound),
+          el('button', { className: 'danger', textContent: 'Sluit stemronde', onclick: () => {
+            if (confirm('Stemronde sluiten?')) act({ action: 'closeRound' });
+          } }),
+        );
+      } else {
+        const label = el('input', { placeholder: 'Bijv. Vrijdag 22:00', value: defaultRoundLabel() });
+        card.append(
+          el('div', { className: 'row' }, label,
+            el('button', { textContent: 'Open stemronde', onclick: () => act({ action: 'openRound', label: label.value }) })),
+          lastClosedRound && el('p', { className: 'kicker', textContent: `Laatste uitslag: ${lastClosedRound.label}` }),
+          lastClosedRound && renderRoundResult(lastClosedRound),
+        );
+      }
+      return card;
+    }
+
+    function renderRoundResult(round) {
+      return el('div', {},
+        table(['Speler', 'Stemmen'], round.tally.map((row) => [row.name, row.votes])),
+        el('p', { className: 'muted', textContent: round.notVoted.length ? `Nog niet gestemd: ${round.notVoted.join(', ')}` : 'Iedereen heeft gestemd.' }),
+        el('details', {}, el('summary', { className: 'muted', textContent: 'Wie stemde op wie' }),
+          table(['Stemmer', 'Stem'], round.votes.map((vote) => [vote.voter, vote.target]))),
+      );
+    }
+
+    function renderAwardCard(players) {
+      const player = el('select', {}, players.map((p) => el('option', { value: p.id, textContent: p.name })));
+      const amount = el('input', { type: 'number', step: 1, value: 3 });
+      const reason = el('input', { placeholder: 'Reden, bijv. geheime opdracht geraden' });
+      const form = el('form', { className: 'card' },
+        el('h2', { textContent: 'Punten toekennen of aftrekken' }),
+        el('div', { className: 'row' }, player, amount),
+        reason,
+        el('button', { type: 'submit', textContent: 'Opslaan' }),
+      );
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        act({ action: 'award', playerId: Number(player.value), amount: Number(amount.value), reason: reason.value });
+      });
+      return form;
+    }
+
+    function renderPlayersCard(players) {
+      return el('section', { className: 'card' }, el('h2', { textContent: 'Spelers' }),
+        table(['Naam', 'Punten', 'Code', 'Rol', 'Opdracht', ''], players.map((p) => [
+          p.name, p.points, p.code, p.role, p.mission,
+          el('button', {
+            className: `small ${p.alive ? 'danger' : ''}`,
+            textContent: p.alive ? 'Uitschakelen' : 'Terughalen',
+            onclick: () => {
+              if (confirm(`${p.name} ${p.alive ? 'uitschakelen' : 'terughalen'}?`)) act({ action: 'setAlive', playerId: p.id, alive: !p.alive });
+            },
+          }),
+        ]), players.map((p) => (p.alive ? '' : 'out'))));
+    }
+
+    function renderQuestionsCard(questions) {
+      return el('section', { className: 'card' }, el('h2', { textContent: 'Vragen' }),
+        table(['#', 'Titel', 'Punten', 'Opgelost door'], questions.map((q) => [q.number, q.title, q.points, q.solves])));
+    }
+
+    function renderLedgerCard(ledger) {
+      return el('section', { className: 'card' }, el('h2', { textContent: 'Logboek (laatste 50)' }),
+        table(['Tijd (UTC)', 'Speler', 'Punten', 'Reden'], ledger.map((l) => [l.created_at.slice(11, 16), l.name, l.amount, l.reason])));
+    }
+
+    function table(headers, rows, rowClasses = []) {
+      return el('div', { className: 'table-wrap' }, el('table', {},
+        el('thead', {}, el('tr', {}, headers.map((h) => el('th', { textContent: h })))),
+        el('tbody', {}, rows.map((cells, i) => el('tr', { className: rowClasses[i] ?? '' },
+          cells.map((cell) => el('td', {}, cell instanceof Node ? cell : String(cell))))))));
+    }
+
+    function defaultRoundLabel() {
+      return `${new Date().toLocaleDateString('nl-NL', { weekday: 'long' })} 22:00`;
+    }
+
+    function sessionStorageGet() {
+      try { return sessionStorage.getItem(PASSWORD_KEY) ?? ''; } catch { return ''; }
+    }
+
+    function sessionStorageSet(value) {
+      try { sessionStorage.setItem(PASSWORD_KEY, value); } catch { /* alleen gemak */ }
+    }
+
+    load();
+  </script>
+</body>
+</html>

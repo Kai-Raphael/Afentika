@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Lustrum · Afentiká</title>
+  <link rel="stylesheet" href="/lustrum/lustrum.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <p class="kicker">Huize Afentiká</p>
+      <h1>Lustrum</h1>
+    </header>
+    <div id="app"></div>
+  </main>
+
+  <script type="module">
+    import { $, api, el, playerCode, renderLogin, showMessage } from '/lustrum/lustrum.js';
+
+    const app = $('#app');
+
+    function renderOverview({ player, points, solved, round }) {
+      const mission = el('p', { className: 'secret', textContent: player.mission, title: 'Tik om te tonen' });
+      mission.addEventListener('click', () => mission.classList.toggle('revealed'));
+
+      app.replaceChildren(
+        el('section', { className: 'card' },
+          el('p', { className: 'kicker', textContent: player.alive ? 'Nog in het spel' : 'Uitgeschakeld' }),
+          el('h2', { textContent: `${player.name} · ${player.role}` }),
+          player.roleDescription && el('p', { className: 'muted', textContent: player.roleDescription }),
+          el('p', { className: 'kicker', textContent: 'Geheime opdracht (tik om te tonen)' }),
+          mission,
+        ),
+        el('section', { className: 'card' },
+          el('p', { className: 'kicker', textContent: 'Jouw punten' }),
+          el('div', { className: 'big', textContent: points }),
+          el('p', { className: 'muted', textContent: solved.length
+            ? `Opgelost: ${solved.map((q) => `#${q.number}`).join(', ')}`
+            : 'Nog geen vragen opgelost. Op zoek naar QR-stickers!' }),
+        ),
+        round ? renderRound(round) : null,
+        el('div', { className: 'row' },
+          el('button', { className: 'secondary', textContent: 'Vernieuwen', onclick: load }),
+          el('button', { className: 'secondary', textContent: 'Scorebord', onclick: () => (location.href = '/lustrum/scorebord') }),
+          el('button', { className: 'secondary', textContent: 'Uitloggen', onclick: logout }),
+        ),
+      );
+    }
+
+    function renderRound(round) {
+      const feedback = el('div');
+      const card = el('section', { className: 'card' },
+        el('p', { className: 'kicker', textContent: 'Stemronde open' }),
+        el('h2', { textContent: round.label }),
+      );
+      if (!round.canVote) {
+        card.append(el('p', { className: 'muted', textContent: 'Uitgeschakelde spelers stemmen niet mee.' }));
+        return card;
+      }
+      card.append(
+        el('p', { className: 'muted', textContent: 'Wie moet het huis verlaten? Je kunt je stem wijzigen tot de ronde sluit.' }),
+        el('div', { className: 'candidates' }, round.candidates.map((candidate) =>
+          el('button', {
+            className: candidate.id === round.votedFor ? 'selected' : '',
+            textContent: candidate.name,
+            onclick: async () => {
+              try {
+                renderOverview({ ...(await api('me')), round: await api('vote', { body: { targetId: candidate.id } }) });
+              } catch (error) {
+                showMessage(feedback, error.message);
+              }
+            },
+          }))),
+        feedback,
+      );
+      return card;
+    }
+
+    async function load() {
+      if (!playerCode.get()) return renderLogin(app, renderOverview);
+      try {
+        renderOverview(await api('me'));
+      } catch (error) {
+        if (error.status === 401) return logout();
+        showMessage(app, error.message);
+      }
+    }
+
+    function logout() {
+      playerCode.clear();
+      renderLogin(app, renderOverview);
+    }
+
+    load();
+  </script>
+</body>
+</html>
