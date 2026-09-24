@@ -1,7 +1,7 @@
 # Afentika
 
 - `public/tripleascoreboard`: Triple A scoreboard
-- `lustrum/`: lustrumspel voor het dispuutsweekend, zie [lustrum/README.md](lustrum/README.md)
+- `/lustrum/*`: doorgestuurd naar het lustrumspel op de VPS (repo operatie-afentika), zie `functions/lustrum/[[path]].js`
 
 ```bash
 npm install

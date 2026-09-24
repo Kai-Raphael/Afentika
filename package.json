@@ -6,11 +6,9 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "test": "vitest run",
-    "lustrum:generate": "node lustrum/scripts/generate.mjs"
+    "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "qrcode": "^1.5.4",
     "vitest": "^5.0.1"
   }
 }
